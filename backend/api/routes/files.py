@@ -27,6 +27,25 @@ class CourseFilesResponse(BaseModel):
     files: list[CanvasFile]
 
 
+class ModuleFileRef(BaseModel):
+    """A file exposed to the student via a course module (student-accessible)."""
+    file_id: int
+    module_item_id: int
+    title: str
+    module_id: int
+    module_name: str
+    position: Optional[int] = None
+    html_url: str = ""
+    url: str = ""
+
+
+class CourseFilesViaModulesResponse(BaseModel):
+    course_id: int
+    total_files: int
+    files: list[ModuleFileRef]
+    note: str = "Files listed from course modules; works with student tokens."
+
+
 # ── Endpoint ──────────────────────────────────────────────────────────────────
 
 @router.get(
@@ -61,4 +80,41 @@ async def list_course_files(course_id: int) -> CourseFilesResponse:
         course_id=course_id,
         total_files=len(files),
         files=files,
+    )
+
+
+@router.get(
+    "/via_modules",
+    response_model=CourseFilesViaModulesResponse,
+    summary="List course files via modules (student-accessible)",
+    description=(
+        "Returns files that appear in the course's modules. Uses the Modules API "
+        "instead of the direct course files endpoint, so it works with student tokens "
+        "when GET /courses/:id/files returns 403."
+    ),
+)
+async def list_course_files_via_modules(
+    course_id: int,
+) -> CourseFilesViaModulesResponse:
+    try:
+        raw = await canvas_service.list_course_files_via_modules(course_id)
+    except CanvasAPIError as e:
+        raise HTTPException(status_code=e.status_code, detail=e.body or str(e))
+    refs = [
+        ModuleFileRef(
+            file_id=r["file_id"],
+            module_item_id=r["module_item_id"],
+            title=r["title"],
+            module_id=r["module_id"],
+            module_name=r["module_name"],
+            position=r.get("position"),
+            html_url=r.get("html_url", ""),
+            url=r.get("url", ""),
+        )
+        for r in raw
+    ]
+    return CourseFilesViaModulesResponse(
+        course_id=course_id,
+        total_files=len(refs),
+        files=refs,
     )
