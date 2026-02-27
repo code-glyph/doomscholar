@@ -1,9 +1,7 @@
 """Canvas LMS API client."""
-
+import io
 from typing import Any
-
 import httpx
-
 from config import settings
 
 
@@ -102,6 +100,32 @@ class CanvasService:
                         break
 
         return all_files
+    
+    async def download_file(self, file_obj: dict[str, Any]) -> io.BytesIO:
+        """
+        Stream a Canvas file into an in-memory BytesIO buffer.
+        Uses the 'url' field already present in the file object
+        returned by list_course_files().
+        """
+        download_url = file_obj.get("url", "")
+        display_name = file_obj.get("display_name", "unknown")
+
+        if not download_url:
+            raise CanvasAPIError(404, f"No download URL for file '{display_name}'.")
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            async with client.stream("GET", download_url, headers=self._headers()) as response:
+                if response.status_code == 401:
+                    raise CanvasAPIError(401, "Canvas access token invalid or expired.")
+                if response.status_code != 200:
+                    raise CanvasAPIError(response.status_code, f"Failed to download '{display_name}'.")
+
+                buffer = io.BytesIO()
+                async for chunk in response.aiter_bytes(chunk_size=8192):
+                    buffer.write(chunk)
+
+        buffer.seek(0)
+        return buffer
 
 # Singleton for use by routes; can be overridden in tests
 canvas_service = CanvasService()
