@@ -64,6 +64,44 @@ class CanvasService:
 
         return response.json()
 
+    async def list_course_files(
+        self,
+        course_id: int,
+        *,
+        per_page: int = 50,
+    ) -> list[dict[str, Any]]:
+        """
+        Fetch all files for a course, following Canvas pagination.
+        GET /api/v1/courses/:course_id/files
+        """
+        url = f"{self.base_url}/api/v1/courses/{course_id}/files"
+        params: dict[str, Any] = {"per_page": per_page}
+        all_files: list[dict[str, Any]] = []
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            while url:
+                response = await client.get(url, headers=self._headers(), params=params)
+
+                if response.status_code == 401:
+                    raise CanvasAPIError(401, "Canvas access token invalid or expired.")
+                if response.status_code == 403:
+                    raise CanvasAPIError(403, f"Access denied to files for course {course_id}.")
+                if response.status_code == 404:
+                    raise CanvasAPIError(404, f"Course {course_id} not found.")
+                if response.status_code != 200:
+                    raise CanvasAPIError(response.status_code, response.text)
+
+                all_files.extend(response.json())
+
+                # Follow Canvas Link header pagination
+                url = None
+                params = {}
+                for part in response.headers.get("link", "").split(","):
+                    if 'rel="next"' in part:
+                        url = part.split(";")[0].strip().strip("<>")
+                        break
+
+        return all_files
 
 # Singleton for use by routes; can be overridden in tests
 canvas_service = CanvasService()
