@@ -59,8 +59,8 @@ struct DashboardView: View {
                     .presentationDetents([.medium, .large])
             }
             .sheet(isPresented: $showSettingsSheet) {
-                SettingsSheetView()
-                    .presentationDetents([.medium])
+                SettingsView()
+                    .appTheme(theme) // keeps colors consistent
             }
         }
     }
@@ -355,32 +355,7 @@ private struct CoursesSheetView: View {
     }
 }
 
-private struct SettingsSheetView: View {
-    @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Theme (mock)") {
-                    Text("Theme customization hooks are in AppTheme.swift.")
-                    Text("Later: put theme pickers here.")
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("Canvas (later)") {
-                    Text("We’ll map courses → quizzes once Canvas integration is ready.")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Settings")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-}
 
 // Allows NavigationDestination with String
 extension String: Identifiable {

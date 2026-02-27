@@ -2,10 +2,13 @@ import SwiftUI
 
 // Centralized theme so you can re-skin easily later.
 struct AppTheme {
+    // ✅ Dynamic system backgrounds that adapt to light/dark mode automatically
     var background: Color = Color(.systemGroupedBackground)
-    var cardBackground: Color = .white
-    var textPrimary: Color = Color(.label)
-    var textSecondary: Color = Color(.secondaryLabel)
+    var cardBackground: Color = Color(.secondarySystemBackground)
+
+    // ✅ Dynamic text colors
+    var textPrimary: Color = .primary
+    var textSecondary: Color = .secondary
 
     // Gradients / accents (match your screenshot vibe)
     var brandGradient: LinearGradient = LinearGradient(
