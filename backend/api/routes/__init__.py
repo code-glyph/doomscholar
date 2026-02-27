@@ -1,8 +1,11 @@
+"""API route registry."""
+
 from fastapi import APIRouter
+from api.routes import courses, files, ingest
 
-from api.routes import courses, health, files
+router = APIRouter(prefix="/api/v1")
 
-router = APIRouter()
-router.include_router(health.router, tags=["health"])
-router.include_router(courses.router, prefix="/courses", tags=["courses"])
+router.include_router(courses.router, prefix="/courses", tags=["Courses"])
 router.include_router(files.router, prefix="/courses/{course_id}/files", tags=["Files"])
+router.include_router(ingest.router, prefix="/courses/{course_id}/ingest", tags=["Ingestion"])
+
