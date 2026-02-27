@@ -1,1 +1,4 @@
-.DS_Store 
+.DS_Store
+backend/.env
+backend/.venv
+backend/api/routes/health.py

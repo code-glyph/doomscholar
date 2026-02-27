@@ -1,10 +1,18 @@
-"""Application settings from environment."""
+"""Application settings from environment (and optional .env file)."""
 
 import os
 
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env from backend directory so token can be stored there for local testing
+_backend_dir = Path(__file__).resolve().parent.parent
+load_dotenv(_backend_dir / ".env")
 
 def _str(name: str, default: str) -> str:
-    return os.environ.get(name, default).strip()
+    value = os.environ.get(name, default)
+    return (value or "").strip()
 
 
 class Settings:
@@ -16,7 +24,7 @@ class Settings:
     )
     canvas_base_url: str = _str(
         "CANVAS_BASE_URL",
-        "https://canvas.instructure.com",
+        "https://psu.instructure.com",
     ).rstrip("/")
 
 

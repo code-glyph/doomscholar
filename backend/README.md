@@ -20,14 +20,44 @@ pip install -r requirements.txt
 
 ## Configuration
 
-- **`CANVAS_ACCESS_TOKEN`** – Canvas API access token (user token from Profile → Settings → New Access Token, or from your OAuth flow). Default: placeholder; set this for real data.
-- **`CANVAS_BASE_URL`** – Canvas instance base URL (e.g. `https://canvas.instructure.com` or your school’s `https://yourschool.instructure.com`). Default: `https://canvas.instructure.com`.
+Settings are read from the environment. For local testing, use a `.env` file (see below).
+
+- **`CANVAS_ACCESS_TOKEN`** – Canvas API access token. Create one at [PSU Canvas → Profile → Settings → + New Access Token](https://psu.instructure.com/profile/settings).
+- **`CANVAS_BASE_URL`** – Canvas instance base URL. Default: `https://psu.instructure.com`.
+
+**Testing with a .env file**
+
+```bash
+cd backend
+cp .env.example .env
+# Edit .env and set CANVAS_ACCESS_TOKEN to your token
+```
+
+The app loads `.env` automatically; `.env` is gitignored.
 
 ## Run
 
+**Option A – from `backend/` (recommended)**
+
 ```bash
-uvicorn app:app --reload
+cd backend
+source .venv/bin/activate
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
+
+Or use the script (activates venv if present, then starts uvicorn):
+
+```bash
+./backend/run.sh
+```
+
+**Option B – from repo root**
+
+```bash
+uvicorn app:app --reload --app-dir backend --host 0.0.0.0 --port 8000
+```
+
+Use the **same Python** that has `pip install -r requirements.txt` (e.g. your `backend/.venv`). If you get `ModuleNotFoundError: No module named 'fastapi'`, activate the venv or use `backend/.venv/bin/uvicorn` with `--app-dir backend`.
 
 API: http://127.0.0.1:8000  
 Docs: http://127.0.0.1:8000/docs
@@ -36,9 +66,11 @@ Docs: http://127.0.0.1:8000/docs
 
 Base URL: `http://127.0.0.1:8000`
 
-- **`GET /courses`** – List courses for the configured Canvas user. Optional query params (passed to Canvas):
-  - `enrollment_state`: `active` | `invited_or_pending` | `completed`
-  - `include`: list of includes (e.g. `syllabus_body`, `term`)
-  - `per_page`: number of courses per page (Canvas default is 10)
+1. **`GET /health`** – Check that the app is up and Canvas is configured (no token in response). If `canvas_token_configured` is `false`, fix your `.env` or env vars.
+2. **`GET /courses`** – List courses for the configured Canvas user. Optional query params (passed to Canvas):
+   - `enrollment_state`: `active` | `invited_or_pending` | `completed`
+   - `include`: list of includes (e.g. `syllabus_body`, `term`)
+   - `per_page`: number of courses per page (Canvas default is 10)
 
-OpenAPI schema: `GET /openapi.json` (for Postman import).
+- **401 on `/courses`** – Token invalid or expired. Create a new token at PSU Canvas → Profile → Settings → + New Access Token and update `.env`.
+- OpenAPI: `GET /openapi.json` (for Postman import).
