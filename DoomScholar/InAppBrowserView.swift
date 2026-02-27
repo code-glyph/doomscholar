@@ -5,99 +5,55 @@
 //  Created by Ajay Narayanan on 2/27/26.
 //
 
-import Foundation
 import SwiftUI
 import WebKit
+import Foundation
 import Combine
 
 struct InAppBrowserView: View {
-    @StateObject private var model = BrowserModel()
+    @StateObject private var model: BrowserModel
+
+    init(startURL: String) {
+        _model = StateObject(wrappedValue: BrowserModel(startURL: startURL))
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // URL bar
-            HStack(spacing: 8) {
-                TextField("Enter URL", text: $model.urlText)
-                    .textInputAutocapitalization(.never)
-                    .keyboardType(.URL)
-                    .autocorrectionDisabled(true)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { model.loadFromBar() }
-
-                Button("Go") { model.loadFromBar() }
-                    .buttonStyle(.borderedProminent)
-            }
-            .padding()
-
-            Divider()
-
-            // WebView
+        ZStack {
+            // Full-screen website content
             WebView(
                 request: $model.request,
                 canGoBack: $model.canGoBack,
                 canGoForward: $model.canGoForward,
                 title: $model.pageTitle,
                 currentURLString: $model.currentURLString,
-                onNavigationEvent: { event in
-                    // You can log events or start tracking scrolling here
-                    // print("Nav event: \(event)")
-                },
+                goBackTapped: $model.goBackTapped,
+                goForwardTapped: $model.goForwardTapped,
+                reloadTapped: $model.reloadTapped,
                 jsToEvaluate: $model.jsToEvaluate
             )
-            .overlay(alignment: .topTrailing) {
-                // Small exam-mode badge
-                if model.examModeEnabled {
-                    Text("Exam Mode")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(.black.opacity(0.75))
-                        .foregroundStyle(.white)
-                        .clipShape(Capsule())
-                        .padding(10)
+            .ignoresSafeArea()
+
+            // Optional: tiny status overlay (remove if you want *zero* UI)
+            if model.examModeEnabled {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text("Exam Mode")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(.black.opacity(0.75))
+                            .foregroundStyle(.white)
+                            .clipShape(Capsule())
+                            .padding(.trailing, 14)
+                            .padding(.top, 12)
+                    }
+                    Spacer()
                 }
+                .ignoresSafeArea()
             }
-
-            Divider()
-
-            // Toolbar
-            HStack(spacing: 16) {
-                Button {
-                    model.goBackTapped.toggle()
-                } label: {
-                    Image(systemName: "chevron.left")
-                }
-                .disabled(!model.canGoBack)
-
-                Button {
-                    model.goForwardTapped.toggle()
-                } label: {
-                    Image(systemName: "chevron.right")
-                }
-                .disabled(!model.canGoForward)
-
-                Button {
-                    model.reloadTapped.toggle()
-                } label: {
-                    Image(systemName: "arrow.clockwise")
-                }
-
-                Spacer()
-
-                Toggle("Exam Mode", isOn: $model.examModeEnabled)
-                    .labelsHidden()
-
-                Button {
-                    model.openQuizNow()
-                } label: {
-                    Image(systemName: "questionmark.circle")
-                }
-                .accessibilityLabel("Quiz now")
-            }
-            .padding()
         }
-        .navigationTitle(model.pageTitle.isEmpty ? "Browser" : model.pageTitle)
-        .navigationBarTitleDisplayMode(.inline)
+//        .toolbar(.hidden, for: .navigationBar)  hides iOS navigation bar if pushed in NavigationStack
         .sheet(isPresented: $model.showQuiz) {
             QuizGateView(
                 question: model.currentQuestion,
@@ -109,18 +65,11 @@ struct InAppBrowserView: View {
                 }
             )
         }
-        .onAppear {
-            model.start()
-        }
-        .onChange(of: model.currentURLString) { _, newURL in
-            // Keep URL bar synced
-            model.urlText = newURL
-        }
+        .onAppear { model.start() }
     }
 }
 
 // MARK: - ViewModel
-
 
 final class BrowserModel: ObservableObject {
     @Published var urlText: String
@@ -146,7 +95,6 @@ final class BrowserModel: ObservableObject {
     private var secondsSpent: Int = 0
     private let triggerEverySeconds: Int = 25
 
-    // ✅ Explicit initializer fixes "no initializers"
     init(startURL: String = "https://www.instagram.com") {
         self.urlText = startURL
         self.currentQuestion = .sample()
