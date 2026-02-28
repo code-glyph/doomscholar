@@ -115,27 +115,35 @@ class CanvasService:
     
     async def download_file(self, file_obj: dict[str, Any]) -> io.BytesIO:
         """
-        Stream a Canvas file into an in-memory BytesIO buffer.
-        Uses the 'url' field already present in the file object
-        returned by list_course_files().
+        Download a Canvas file into an in-memory BytesIO buffer.
+        Uses the 'url' field from the file object; follows redirects (Canvas often 302s to the actual file).
         """
-        download_url = file_obj.get("url", "")
+        download_url = (file_obj.get("url") or "").strip()
         display_name = file_obj.get("display_name", "unknown")
 
         if not download_url:
             raise CanvasAPIError(404, f"No download URL for file '{display_name}'.")
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            async with client.stream("GET", download_url, headers=self._headers()) as response:
-                if response.status_code == 401:
-                    raise CanvasAPIError(401, "Canvas access token invalid or expired.")
-                if response.status_code != 200:
-                    raise CanvasAPIError(response.status_code, f"Failed to download '{display_name}'.")
+        # Canvas may return a relative URL (e.g. /files/123/download?download_frd=1)
+        if download_url.startswith("/"):
+            download_url = f"{self.base_url.rstrip('/')}{download_url}"
 
-                buffer = io.BytesIO()
-                async for chunk in response.aiter_bytes(chunk_size=8192):
-                    buffer.write(chunk)
+        async with httpx.AsyncClient(
+            timeout=self.timeout,
+            follow_redirects=True,
+        ) as client:
+            response = await client.get(download_url, headers=self._headers())
 
+        if response.status_code == 401:
+            raise CanvasAPIError(401, "Canvas access token invalid or expired.")
+        if response.status_code != 200:
+            raise CanvasAPIError(
+                response.status_code,
+                f"Failed to download '{display_name}' (status {response.status_code}). "
+                "Check that the file is published and the token has access.",
+            )
+
+        buffer = io.BytesIO(response.content)
         buffer.seek(0)
         return buffer
 
@@ -156,9 +164,9 @@ class CanvasService:
         result: list[dict[str, Any]] = []
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            # Paginate through modules
+            # Request items inline to avoid one request per module (much faster)
             modules_url = f"{base}/api/v1/courses/{course_id}/modules"
-            params: dict[str, Any] = {"per_page": per_page}
+            params: dict[str, Any] = {"per_page": per_page, "include[]": "items"}
             while modules_url:
                 mod_resp = await client.get(
                     modules_url, headers=headers, params=params
@@ -186,36 +194,51 @@ class CanvasService:
                 for mod in modules:
                     mod_id = mod.get("id")
                     mod_name = mod.get("name", "")
-
-                    # Paginate through items in this module
-                    items_url = f"{base}/api/v1/courses/{course_id}/modules/{mod_id}/items"
-                    item_params: dict[str, Any] = {"per_page": per_page}
-                    while items_url:
-                        item_resp = await client.get(
-                            items_url, headers=headers, params=item_params
-                        )
-                        if item_resp.status_code != 200:
-                            break
-                        items = item_resp.json()
-                        for it in items:
-                            if it.get("type") != "File":
-                                continue
-                            result.append({
-                                "file_id": it.get("content_id"),
-                                "module_item_id": it.get("id"),
-                                "title": it.get("title", ""),
-                                "module_id": mod_id,
-                                "module_name": mod_name,
-                                "position": it.get("position"),
-                                "html_url": it.get("html_url", ""),
-                                "url": it.get("url", ""),
-                            })
-                        items_url = None
-                        item_params = {}
-                        for part in item_resp.headers.get("link", "").split(","):
-                            if 'rel="next"' in part:
-                                items_url = part.split(";")[0].strip().strip("<>")
+                    items = mod.get("items")
+                    if not items:
+                        # Canvas omitted items (e.g. too many); fetch this module's items
+                        items_url = f"{base}/api/v1/courses/{course_id}/modules/{mod_id}/items"
+                        item_params: dict[str, Any] = {"per_page": per_page}
+                        while items_url:
+                            item_resp = await client.get(
+                                items_url, headers=headers, params=item_params
+                            )
+                            if item_resp.status_code != 200:
                                 break
+                            items = item_resp.json()
+                            for it in items:
+                                if it.get("type") != "File":
+                                    continue
+                                result.append({
+                                    "file_id": it.get("content_id"),
+                                    "module_item_id": it.get("id"),
+                                    "title": it.get("title", ""),
+                                    "module_id": mod_id,
+                                    "module_name": mod_name,
+                                    "position": it.get("position"),
+                                    "html_url": it.get("html_url", ""),
+                                    "url": it.get("url", ""),
+                                })
+                            items_url = None
+                            item_params = {}
+                            for part in item_resp.headers.get("link", "").split(","):
+                                if 'rel="next"' in part:
+                                    items_url = part.split(";")[0].strip().strip("<>")
+                                    break
+                        continue
+                    for it in items:
+                        if it.get("type") != "File":
+                            continue
+                        result.append({
+                            "file_id": it.get("content_id"),
+                            "module_item_id": it.get("id"),
+                            "title": it.get("title", ""),
+                            "module_id": mod_id,
+                            "module_name": mod_name,
+                            "position": it.get("position"),
+                            "html_url": it.get("html_url", ""),
+                            "url": it.get("url", ""),
+                        })
 
                 modules_url = None
                 params = {}

@@ -1,8 +1,9 @@
-"""File parsers for supported document types (PPTX, DOCX, TXT)."""
+"""File parsers for supported document types (PPTX, DOCX, TXT, PDF)."""
 
 import io
 from pptx import Presentation
 from docx import Document
+from pypdf import PdfReader
 
 # Maps Canvas content-type values to a simple type label
 SUPPORTED_MIME_TYPES: dict[str, str] = {
@@ -11,13 +12,14 @@ SUPPORTED_MIME_TYPES: dict[str, str] = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "application/msword": "docx",
     "text/plain": "txt",
+    "application/pdf": "pdf",
 }
 
-SUPPORTED_EXTENSIONS: set[str] = {".pptx", ".ppt", ".docx", ".doc", ".txt"}
+SUPPORTED_EXTENSIONS: set[str] = {".pptx", ".ppt", ".docx", ".doc", ".txt", ".pdf"}
 
 
 def is_supported(file_obj: dict) -> bool:
-    """Return True if the file is a PPTX, DOCX, or TXT."""
+    """Return True if the file is a PPTX, DOCX, TXT, or PDF."""
     content_type = file_obj.get("content-type", "")
     filename = file_obj.get("filename", file_obj.get("display_name", ""))
     ext = ("." + filename.rsplit(".", 1)[-1].lower()) if "." in filename else ""
@@ -37,6 +39,8 @@ def _resolve_type(file_obj: dict) -> str | None:
         return "docx"
     if ext == ".txt":
         return "txt"
+    if ext == ".pdf":
+        return "pdf"
     return None
 
 
@@ -54,6 +58,8 @@ def parse_file(buffer: io.BytesIO, file_obj: dict) -> list[dict]:
         return _parse_docx(buffer)
     if file_type == "txt":
         return _parse_txt(buffer)
+    if file_type == "pdf":
+        return _parse_pdf(buffer)
     return []
 
 
@@ -94,3 +100,16 @@ def _parse_txt(buffer: io.BytesIO) -> list[dict]:
     if not text:
         return []
     return [{"text": text, "source_location": "full document"}]
+
+
+def _parse_pdf(buffer: io.BytesIO) -> list[dict]:
+    reader = PdfReader(buffer)
+    sections = []
+    for i, page in enumerate(reader.pages, start=1):
+        text = page.extract_text()
+        if text and text.strip():
+            sections.append({
+                "text": text.strip(),
+                "source_location": f"page {i}",
+            })
+    return sections

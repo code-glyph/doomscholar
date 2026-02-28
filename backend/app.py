@@ -7,6 +7,7 @@ from api.routes import router as api_router
 from api.routes import courses as courses_routes
 from api.routes import files as files_routes
 from api.routes import questions as questions_routes
+from api.routes import questions_from_file as questions_from_file_routes
 
 app = FastAPI(
     title="DoomScholar API",
@@ -31,6 +32,7 @@ app.include_router(
     tags=["Files"],
 )
 app.include_router(questions_routes.router, prefix="/questions", tags=["Questions"])
+app.include_router(questions_from_file_routes.router, prefix="/questions", tags=["Questions"])
 
 
 @app.get("/", tags=["Meta"])
