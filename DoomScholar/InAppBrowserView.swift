@@ -13,13 +13,27 @@ import Combine
 struct InAppBrowserView: View {
     @StateObject private var model: BrowserModel
 
-    init(startURL: String) {
-        _model = StateObject(wrappedValue: BrowserModel(startURL: startURL))
+    /// ✅ Exam Mode is now owned by the view (or parent) instead of BrowserModel.
+    @Binding private var examModeEnabled: Bool
+
+    private let enableQuizTimer: Bool
+
+    // Convenience init when caller doesn’t care (defaults ON)
+    init(startURL: String, enableQuizTimer: Bool = true) {
+        self._examModeEnabled = .constant(enableQuizTimer) // default ON for scrolling, OFF for canvas
+        self.enableQuizTimer = enableQuizTimer
+        _model = StateObject(wrappedValue: BrowserModel(startURL: startURL, enableQuizTimer: enableQuizTimer))
+    }
+
+    // Full init when caller wants to control examMode externally
+    init(startURL: String, enableQuizTimer: Bool = true, examModeEnabled: Binding<Bool>) {
+        self._examModeEnabled = examModeEnabled
+        self.enableQuizTimer = enableQuizTimer
+        _model = StateObject(wrappedValue: BrowserModel(startURL: startURL, enableQuizTimer: enableQuizTimer))
     }
 
     var body: some View {
         ZStack {
-            // Full-screen website content
             WebView(
                 request: $model.request,
                 canGoBack: $model.canGoBack,
@@ -33,8 +47,7 @@ struct InAppBrowserView: View {
             )
             .ignoresSafeArea()
 
-            // Optional: tiny status overlay (remove if you want *zero* UI)
-            if model.examModeEnabled {
+            if examModeEnabled {
                 VStack {
                     HStack {
                         Spacer()
@@ -53,7 +66,6 @@ struct InAppBrowserView: View {
                 .ignoresSafeArea()
             }
         }
-//        .toolbar(.hidden, for: .navigationBar)  hides iOS navigation bar if pushed in NavigationStack
         .sheet(isPresented: $model.showQuiz) {
             QuizGateView(
                 question: model.currentQuestion,
@@ -65,7 +77,27 @@ struct InAppBrowserView: View {
                 }
             )
         }
-        .onAppear { model.start() }
+        .onAppear {
+            // ✅ Only start timer if this screen is allowed to quiz AND exam mode is on
+            if enableQuizTimer && examModeEnabled {
+                model.start()
+            } else {
+                model.stopTimer()
+            }
+        }
+        .onChange(of: examModeEnabled) { _, newValue in
+            // ✅ If user toggles exam mode, start/stop timer live
+            guard enableQuizTimer else { return } // Canvas login never quizzes
+            if newValue {
+                model.start()
+            } else {
+                model.stopTimer()
+                model.clearBlockOverlayIfNeeded()
+            }
+        }
+        .onDisappear {
+            model.stopTimer()
+        }
     }
 }
 
@@ -81,7 +113,6 @@ final class BrowserModel: ObservableObject {
     @Published var pageTitle: String = ""
     @Published var currentURLString: String = ""
 
-    @Published var examModeEnabled: Bool = true
     @Published var showQuiz: Bool = false
 
     @Published var goBackTapped: Bool = false
@@ -91,13 +122,16 @@ final class BrowserModel: ObservableObject {
     @Published var jsToEvaluate: String? = nil
     @Published var currentQuestion: QuizQuestion
 
+    private let enableQuizTimer: Bool
+
     private var timer: Timer?
     private var secondsSpent: Int = 0
     private let triggerEverySeconds: Int = 25
 
-    init(startURL: String = "https://www.instagram.com") {
+    init(startURL: String = "https://www.instagram.com", enableQuizTimer: Bool = true) {
         self.urlText = startURL
         self.currentQuestion = .sample()
+        self.enableQuizTimer = enableQuizTimer
 
         if let url = URL(string: startURL) {
             self.request = URLRequest(url: url)
@@ -108,31 +142,32 @@ final class BrowserModel: ObservableObject {
         }
     }
 
+    deinit { stopTimer() }
+
     func start() {
-        timer?.invalidate()
+        stopTimer()
+        guard enableQuizTimer else { return }
+
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
     }
 
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+    }
+
     private func tick() {
-        guard examModeEnabled else { return }
+        guard enableQuizTimer else { return }
         secondsSpent += 1
         if secondsSpent % triggerEverySeconds == 0 {
             openQuizNow()
         }
     }
 
-    func loadFromBar() {
-        var text = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.lowercased().hasPrefix("http://") && !text.lowercased().hasPrefix("https://") {
-            text = "https://" + text
-        }
-        guard let url = URL(string: text) else { return }
-        request = URLRequest(url: url)
-    }
-
     func openQuizNow() {
+        guard enableQuizTimer else { return }
         injectHardBlockOverlay()
         currentQuestion = .sample()
         showQuiz = true
@@ -151,6 +186,22 @@ final class BrowserModel: ObservableObject {
     func openReview() {
         urlText = "https://example.com/review"
         loadFromBar()
+    }
+
+    func loadFromBar() {
+        var text = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !text.lowercased().hasPrefix("http://") && !text.lowercased().hasPrefix("https://") {
+            text = "https://" + text
+        }
+        guard let url = URL(string: text) else { return }
+        request = URLRequest(url: url)
+    }
+
+    // ✅ Called when exam mode is toggled OFF to ensure we don’t leave page blocked.
+    func clearBlockOverlayIfNeeded() {
+        removeHardBlockOverlay()
+        showQuiz = false
+        secondsSpent = 0
     }
 
     private func injectHardBlockOverlay() {

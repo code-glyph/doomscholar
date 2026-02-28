@@ -20,6 +20,7 @@ struct DashboardView: View {
     @State private var selectedURL: String? = nil
     @State private var showCoursesSheet: Bool = false
     @State private var showSettingsSheet: Bool = false
+    @AppStorage("examModeEnabled") var examModeEnabled: Bool = true
 
     private let courses = DashboardMockData.courses
     private let appLinks = DashboardMockData.appLinks
@@ -52,7 +53,11 @@ struct DashboardView: View {
             .navigationBarHidden(true)
             .navigationDestination(item: $selectedURL) { url in
                 // You already have this implemented; keep the signature the same.
-                InAppBrowserView(startURL: url)
+                InAppBrowserView(
+                    startURL: url,
+                    enableQuizTimer: true,
+                    examModeEnabled: $examModeEnabled
+                )
             }
             .sheet(isPresented: $showCoursesSheet) {
                 CoursesSheetView(courses: courses)
@@ -133,19 +138,19 @@ struct DashboardView: View {
                 label: "Minutes Learning"
             )
 
-            StatCard(
-                icon: "chart.line.uptrend.xyaxis",
-                iconTint: Color.green,
-                value: "\(questionsToday)",
-                label: "Questions Today"
-            )
-
-            StatCard(
-                icon: "book.closed",
-                iconTint: Color.orange,
-                value: "\(dayStreak)",
-                label: "Day Streak"
-            )
+//            StatCard(
+//                icon: "chart.line.uptrend.xyaxis",
+//                iconTint: Color.green,
+//                value: "\(questionsToday)",
+//                label: "Questions Today"
+//            )
+//
+//            StatCard(
+//                icon: "book.closed",
+//                iconTint: Color.orange,
+//                value: "\(dayStreak)",
+//                label: "Day Streak"
+//            )
         }
     }
 

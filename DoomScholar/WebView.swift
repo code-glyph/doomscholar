@@ -2,8 +2,6 @@
 //  WebView.swift
 //  DoomScholar
 //
-//  Created by Ajay Narayanan on 2/27/26.
-//
 
 import SwiftUI
 import WebKit
@@ -16,20 +14,15 @@ struct WebView: UIViewRepresentable {
     @Binding var title: String
     @Binding var currentURLString: String
 
-    // Toolbar triggers from SwiftUI
     @Binding var goBackTapped: Bool
     @Binding var goForwardTapped: Bool
     @Binding var reloadTapped: Bool
 
-    // Optional navigation event callback
     var onNavigationEvent: (String) -> Void = { _ in }
 
-    // One-shot JS to evaluate
     @Binding var jsToEvaluate: String?
 
-    func makeCoordinator() -> Coordinator {
-        Coordinator(self)
-    }
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     func makeUIView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
@@ -38,18 +31,21 @@ struct WebView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
+
         return webView
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Load new request if changed
-        if let req = request {
-            if webView.url?.absoluteString != req.url?.absoluteString {
+        // ✅ Only load when *our binding* changes (prevents redirect reload loops)
+        if let req = request, let reqURL = req.url {
+            if context.coordinator.lastExternallyLoadedURL != reqURL {
+                context.coordinator.lastExternallyLoadedURL = reqURL
+                onNavigationEvent("externalLoad: \(reqURL.absoluteString)")
                 webView.load(req)
             }
         }
 
-        // Handle toolbar triggers (consume + reset)
+        // Toolbar triggers
         if goBackTapped {
             DispatchQueue.main.async { self.goBackTapped = false }
             if webView.canGoBack { webView.goBack() }
@@ -65,7 +61,7 @@ struct WebView: UIViewRepresentable {
             webView.reload()
         }
 
-        // Evaluate JS once
+        // One-shot JS
         if let js = jsToEvaluate {
             webView.evaluateJavaScript(js)
             DispatchQueue.main.async { self.jsToEvaluate = nil }
@@ -74,20 +70,18 @@ struct WebView: UIViewRepresentable {
 
     final class Coordinator: NSObject, WKNavigationDelegate {
         var parent: WebView
+        var lastExternallyLoadedURL: URL? = nil
 
-        init(_ parent: WebView) {
-            self.parent = parent
-        }
+        init(_ parent: WebView) { self.parent = parent }
 
         func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
             parent.onNavigationEvent("didStart")
-            syncState(webView)
+            sync(webView)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             parent.onNavigationEvent("didFinish")
-            syncState(webView)
-
+            sync(webView)
             DispatchQueue.main.async {
                 self.parent.title = webView.title ?? ""
                 self.parent.currentURLString = webView.url?.absoluteString ?? ""
@@ -96,7 +90,12 @@ struct WebView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
             parent.onNavigationEvent("didFail: \(error.localizedDescription)")
-            syncState(webView)
+            sync(webView)
+        }
+
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            parent.onNavigationEvent("didFailProvisional: \(error.localizedDescription)")
+            sync(webView)
         }
 
         func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
@@ -104,7 +103,7 @@ struct WebView: UIViewRepresentable {
             decisionHandler(.allow)
         }
 
-        private func syncState(_ webView: WKWebView) {
+        private func sync(_ webView: WKWebView) {
             DispatchQueue.main.async {
                 self.parent.canGoBack = webView.canGoBack
                 self.parent.canGoForward = webView.canGoForward
