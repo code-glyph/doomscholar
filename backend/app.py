@@ -51,4 +51,10 @@ async def root():
 
 @app.get("/health", tags=["Meta"])
 async def health():
-    return {"status": "ok"}
+    from config import settings
+    token_set = bool(settings.canvas_access_token and settings.canvas_access_token.strip())
+    return {
+        "status": "ok",
+        "canvas_configured": token_set,
+        "hint": "If /courses fails, set CANVAS_ACCESS_TOKEN (and CANVAS_BASE_URL) in your host's environment variables.",
+    }
