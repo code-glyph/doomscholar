@@ -1,5 +1,8 @@
 """FastAPI application entry point."""
 
+# Load .env as early as possible (deploy may rely on host env vars instead)
+from config import settings  # noqa: F401 — triggers load_dotenv
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

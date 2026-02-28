@@ -33,8 +33,13 @@ from services.parser import is_supported
 from services.parser import parse_file
 
 
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "").strip()
-OPENAI_MODEL = os.environ.get("OPENAI_QUESTION_MODEL", "gpt-4o-mini")
+def _get_openai_key() -> str:
+    """Read at request time so deploy env (Railway/Render/etc.) is always used."""
+    return os.environ.get("OPENAI_API_KEY", "").strip()
+
+
+def _get_openai_model() -> str:
+    return os.environ.get("OPENAI_QUESTION_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini"
 
 
 def _cache_get(file_id: int | str) -> dict[str, Any] | None:
@@ -121,7 +126,8 @@ async def generate_question_from_file() -> dict[str, Any]:
     call OpenAI to generate one question in our standard format. Returns a dict
     with id, topic, hint, answer, mcq (question, options, correct_index).
     """
-    if not OPENAI_API_KEY:
+    api_key = _get_openai_key()
+    if not api_key:
         raise ValueError(
             "OPENAI_API_KEY is not set. Set it in the environment to generate questions from course files."
         )
@@ -143,7 +149,7 @@ async def generate_question_from_file() -> dict[str, Any]:
     # Cap size for API
     if len(combined_text) > 12000:
         combined_text = combined_text[:12000] + "\n\n[... truncated for length ...]"
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    client = AsyncOpenAI(api_key=api_key)
     prompt = f"""You are a graduate-level exam question writer. Below is excerpted course material from the course "{course_name}".
 
 Generate exactly ONE multiple-choice question that can be answered from this material. Output valid JSON only, no markdown or explanation, in this exact shape:
@@ -165,7 +171,7 @@ Course material:
 ---"""
 
     response = await client.chat.completions.create(
-        model=OPENAI_MODEL,
+        model=_get_openai_model(),
         messages=[{"role": "user", "content": prompt}],
         temperature=0.5,
     )
