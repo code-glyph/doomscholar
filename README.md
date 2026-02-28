@@ -1,77 +1,175 @@
-DoomScholar
-DoomScholar is a hybrid full-stack academic assistant that combines a SwiftUI iOS app with a Python AI backend to ingest course materials, connect with Canvas LMS, and generate interactive quiz questions using vector search and LLM-based pipelines.
-📚 Project Overview
-DoomScholar’s goal is to streamline learning workflows by providing a mobile interface for students paired with an intelligent backend that:
-Connects securely with Canvas LMS
-Ingests course files and web content
-Parses and chunks text for embedding
-Stores vectors in Qdrant
-Uses an LLM (e.g., Cohere) to generate quiz questions and summaries
-This hybrid approach brings together iOS usability and backend AI workflows to help users review and engage with course materials efficiently.
-📱 App – iOS (SwiftUI)
-Features
-Canvas single sign-on & authentication
-Dashboard of courses and materials
-Embedded web browser (Canvas content)
-Display and interaction with generated quiz questions
-Uses SwiftUI for modern, declarative UIs
-Requirements
-Xcode latest stable version
-iOS 16.0+
-Swift 5+
-Running
-Open DoomScholar.xcodeproj in Xcode.
-Configure any necessary API base URLs.
-Run on a simulator or physical device.
-🧠 Backend – Python AI Service
-Architecture
-The backend is structured with:
-FastAPI-style routes
-Canvas LMS integration
-File ingestion and parsing
-Chunking & embedding via Cohere
-Vector storage in Qdrant
-Key folders
-backend/
-├─ api/routes/         # FastAPI endpoints
-├─ services/           # Logic modules (Canvas, ingestion, parser, Qdrant)
-├─ core/               # Configuration & environment
-├─ tests/              # Test suite
-├─ run.sh              # Launch script
-├─ requirements.txt    # Python dependencies
-Running Locally
-# Create venv
+# DoomScholar
+
+**DoomScholar** is a hybrid full‑stack academic assistant that combines
+a SwiftUI iOS application with a Python AI backend to ingest course
+materials, integrate with Canvas LMS, and generate intelligent quiz
+questions using vector search and LLM-powered pipelines.
+
+------------------------------------------------------------------------
+
+## 🚀 Overview
+
+DoomScholar is designed to streamline studying by pairing:
+
+-   📱 A modern iOS app built with SwiftUI\
+-   🧠 A Python backend for AI-powered ingestion and question
+    generation\
+-   📚 Canvas LMS integration\
+-   🔎 Vector search using Qdrant\
+-   ✨ LLM integration (Cohere)
+
+The system ingests course content, parses and chunks documents, embeds
+them into a vector database, and generates quiz questions for
+interactive learning.
+
+------------------------------------------------------------------------
+
+## 📱 iOS App
+
+Located in:
+
+    DoomScholar/
+
+### Features
+
+-   Canvas authentication
+-   Course dashboard
+-   Embedded browser for LMS content
+-   Quiz question display
+-   Clean SwiftUI-based interface
+
+### Requirements
+
+-   Xcode (latest stable)
+-   iOS 16+
+-   Swift 5+
+
+### Run the App
+
+1.  Open `DoomScholar.xcodeproj` in Xcode.
+2.  Configure API base URL if needed.
+3.  Build and run on simulator or device.
+
+------------------------------------------------------------------------
+
+## 🧠 Backend (Python)
+
+Located in:
+
+    backend/
+
+### Architecture
+
+-   FastAPI-style API routes
+-   Modular services layer
+-   Canvas integration service
+-   Text parsing & chunking pipeline
+-   Cohere embeddings + LLM generation
+-   Qdrant vector storage
+
+### Key Directories
+
+    backend/
+    ├── api/routes/       # API endpoints
+    ├── services/         # Business logic modules
+    ├── config/           # App configuration
+    ├── main.py           # Entry point
+    ├── requirements.txt  # Dependencies
+    ├── Dockerfile        # Container config
+
+------------------------------------------------------------------------
+
+## 🛠 Local Backend Setup
+
+### 1. Create Virtual Environment
+
+``` bash
 python -m venv venv
 source venv/bin/activate
+```
 
-# Install deps
+### 2. Install Dependencies
+
+``` bash
 pip install -r requirements.txt
+```
 
-# Create .env based on .env.example
+### 3. Configure Environment Variables
+
+``` bash
 cp .env.example .env
-# Fill in keys: COHERE_API_KEY, QDRANT_URL, CANVAS creds
+```
 
-# Start service
+Fill in:
+
+-   COHERE_API_KEY
+-   QDRANT_URL
+-   Canvas credentials
+-   Any other required secrets
+
+### 4. Run Server
+
+``` bash
 bash run.sh
-🐳 Docker Deployment
-You can containerize the backend:
+```
+
+or
+
+``` bash
+python main.py
+```
+
+API docs available at:
+
+    http://localhost:8000/docs
+
+------------------------------------------------------------------------
+
+## 🐳 Docker Deployment
+
+Inside `backend/`:
+
+``` bash
 docker build -t doomscholar-backend .
 docker run -p 8000:8000 doomscholar-backend
-🔌 APIs & Integration
-The backend exposes endpoints for:
-Authentication & health checks
-File uploads and ingestion
-Canvas course sync
-Quiz question generation
-Vector search & retrieval
-Documentation (OpenAPI) is available at /docs when backend is running.
-🧩 Dependencies
-FastAPI – backend web framework
-Cohere – LLM & embedder
-Qdrant – vector database
-SwiftUI – iOS app UI
-🚀 Contribution
-Contributions are welcome!
-Report bugs or issues
-Suggest features
-Improve docs and tests
+```
+
+------------------------------------------------------------------------
+
+## 🔌 Core Capabilities
+
+-   Canvas course syncing
+-   Document ingestion
+-   Intelligent text chunking
+-   Embedding generation
+-   Vector search retrieval
+-   AI-generated quiz questions
+
+------------------------------------------------------------------------
+
+## 🧩 Tech Stack
+
+**Frontend** - SwiftUI
+
+**Backend** - Python - FastAPI-style routing - Cohere - Qdrant
+
+------------------------------------------------------------------------
+
+## 🧪 Future Improvements
+
+-   Automated testing suite
+-   CI/CD pipeline
+-   Expanded documentation
+-   Architecture diagram
+-   UI screenshots
+-   Production deployment guide
+
+------------------------------------------------------------------------
+
+## 📜 License
+
+No license detected. Add a LICENSE file if open-sourcing.
+
+------------------------------------------------------------------------
+
+Built as a full-stack AI-powered academic assistant.
