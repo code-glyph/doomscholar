@@ -100,9 +100,6 @@ struct InAppBrowserView: View {
         }
     }
 }
-
-// MARK: - ViewModel
-
 final class BrowserModel: ObservableObject {
     @Published var urlText: String
     @Published var request: URLRequest?
@@ -124,9 +121,19 @@ final class BrowserModel: ObservableObject {
 
     private let enableQuizTimer: Bool
 
-    private var timer: Timer?
+    // Quiz interrupt timer
+    private var quizTimer: Timer?
     private var secondsSpent: Int = 0
     private let triggerEverySeconds: Int = 10
+
+    // Question fetch polling
+    private var fetchTimer: Timer?
+    private var isFetching: Bool = false
+    private let fetchEverySeconds: Int = 15
+    private let questionsEndpoint = URL(string: "https://doomscholar-production.up.railway.app/questions")!
+
+    // ✅ New: buffer incoming question while user is answering
+    private var pendingQuestion: QuizQuestion? = nil
 
     init(startURL: String = "https://www.instagram.com", enableQuizTimer: Bool = true) {
         self.urlText = startURL
@@ -142,24 +149,44 @@ final class BrowserModel: ObservableObject {
         }
     }
 
-    deinit { stopTimer() }
+    deinit { stopAll() }
+
+    // MARK: - Lifecycle
 
     func start() {
-        stopTimer()
+        stopAll()
         guard enableQuizTimer else { return }
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
-            self?.tick()
+        // Quiz interrupt timer
+        quizTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.tickQuiz()
+        }
+
+        // Question polling (fetch once immediately, then repeat)
+        fetchLatestQuestion()
+        fetchTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(fetchEverySeconds), repeats: true) { [weak self] _ in
+            self?.fetchLatestQuestion()
         }
     }
 
-    func stopTimer() {
-        timer?.invalidate()
-        timer = nil
+    func stopTimer() { stopAll() }
+
+    private func stopAll() {
+        quizTimer?.invalidate()
+        quizTimer = nil
+        fetchTimer?.invalidate()
+        fetchTimer = nil
+        isFetching = false
     }
 
-    private func tick() {
+    // MARK: - Quiz timer logic
+
+    private func tickQuiz() {
         guard enableQuizTimer else { return }
+
+        // ✅ If user is currently answering, do NOT trigger a new popup
+        if showQuiz { return }
+
         secondsSpent += 1
         if secondsSpent % triggerEverySeconds == 0 {
             openQuizNow()
@@ -168,8 +195,17 @@ final class BrowserModel: ObservableObject {
 
     func openQuizNow() {
         guard enableQuizTimer else { return }
+
+        // ✅ Don't open if already open (double safety)
+        guard !showQuiz else { return }
+
+        // ✅ If we have a pending question fetched during last quiz, apply it now
+        if let pending = pendingQuestion {
+            currentQuestion = pending
+            pendingQuestion = nil
+        }
+
         injectHardBlockOverlay()
-        currentQuestion = .sample()
         showQuiz = true
     }
 
@@ -178,10 +214,53 @@ final class BrowserModel: ObservableObject {
             removeHardBlockOverlay()
             secondsSpent = 0
             showQuiz = false
+
+            // ✅ When quiz ends, if we received a pending question during the quiz, apply it for next time
+            if let pending = pendingQuestion {
+                currentQuestion = pending
+                pendingQuestion = nil
+            }
         } else {
             // keep blocked; user can review + retry
         }
     }
+
+    // MARK: - Fetch question from API
+
+    private func fetchLatestQuestion() {
+        guard enableQuizTimer else { return }
+        guard !isFetching else { return }
+        isFetching = true
+
+        var req = URLRequest(url: questionsEndpoint)
+        req.httpMethod = "GET"
+        req.timeoutInterval = 15
+
+        URLSession.shared.dataTask(with: req) { [weak self] data, _, error in
+            defer { self?.isFetching = false }
+            guard let self else { return }
+            guard error == nil, let data else { return }
+
+            do {
+                let decoded = try JSONDecoder().decode(QuestionAPIResponse.self, from: data)
+                let newQuestion = QuizQuestion.fromAPI(decoded)
+
+                DispatchQueue.main.async {
+                    // ✅ If user is answering, buffer it
+                    if self.showQuiz {
+                        self.pendingQuestion = newQuestion
+                    } else {
+                        // otherwise, update immediately
+                        self.currentQuestion = newQuestion
+                    }
+                }
+            } catch {
+                // optional: print("Decode error:", error)
+            }
+        }.resume()
+    }
+
+    // MARK: - Review & navigation
 
     func openReview() {
         urlText = "https://example.com/review"
@@ -197,12 +276,14 @@ final class BrowserModel: ObservableObject {
         request = URLRequest(url: url)
     }
 
-    // ✅ Called when exam mode is toggled OFF to ensure we don’t leave page blocked.
     func clearBlockOverlayIfNeeded() {
         removeHardBlockOverlay()
         showQuiz = false
         secondsSpent = 0
+        // don’t drop pendingQuestion; keep it for next time
     }
+
+    // MARK: - JS Overlays
 
     private func injectHardBlockOverlay() {
         jsToEvaluate = """

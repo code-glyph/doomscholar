@@ -9,12 +9,12 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        DashboardView()
-            .appTheme(AppTheme()) // swap theme here later
-//        NavigationStack {
-//            CanvasLoginView()
-//        }
-//        .appTheme(AppTheme()) // same theme as dashboard/settings
+//        DashboardView()
+//            .appTheme(AppTheme()) // swap theme here later
+        NavigationStack {
+            CanvasLoginView()
+        }
+        .appTheme(AppTheme()) // same theme as dashboard/settings
         
     }
 }
