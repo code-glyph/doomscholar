@@ -2,6 +2,8 @@
 
 FastAPI server for Canvas integration. For the demo, it uses a single configured access token to proxy Canvas API requests.
 
+**Deploy:** See **[DEPLOY.md](DEPLOY.md)** for Railway, Render, Docker, and VPS.
+
 ## Layout
 
 - **`app.py`** – FastAPI app; mounts routers (no `main` module).
