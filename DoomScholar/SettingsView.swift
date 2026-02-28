@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     // Persisted (works great for hackathon)
     @AppStorage("qs_questionsPerInterrupt") private var questionsPerInterrupt: Int = 3
-    @AppStorage("qs_frequencyMinutes") private var frequencyMinutes: Int = 10
+    @AppStorage("qs_frequencySeconds") private var frequencyMinutes: Int = 10
 
     // UI state
     @State private var didSave = false
@@ -176,7 +176,7 @@ struct SettingsView: View {
                             Text("\(qph)")
                                 .font(.system(size: 26, weight: .bold, design: .rounded))
                                 .foregroundStyle(.white)
-                            Text("questions per hour of scrolling")
+                            Text("questions per minute of scrolling")
                                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.92))
                         }

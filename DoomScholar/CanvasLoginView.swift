@@ -105,7 +105,7 @@ struct CanvasLoginView: View {
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 
-                Text("Sign in to Penn State Canvas to import courses.\n(We’ll wire the API later.)")
+                Text("Sign in to Penn State Canvas to import courses.")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.92))
                     .lineLimit(3)

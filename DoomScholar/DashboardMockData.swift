@@ -12,7 +12,7 @@ enum DashboardMockData {
     static let courses: [DashboardCourse] = [
         .init(name: "Programming and Computation II: Data Structures", code: "CMPSC 132", instructor: "Prof. Krishna Kambhampaty"),
         .init(name: "Introduction to Systems Programming", code: "CMPSC 311", instructor: "Prof. Sencun Zhu"),
-        .init(name: "Programming for Engineers with MATLAB", code: "CMPSC 200", instructor: "Prof.  Brad Sottile")
+        .init(name: "Computer Vision", code: "CSE 586", instructor: "Prof. Robert Collins")
     ]
 
     static let appLinks: [DashboardAppLink] = [

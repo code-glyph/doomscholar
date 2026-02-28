@@ -348,9 +348,9 @@ private struct CoursesSheetView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(c.code) • \(c.name)")
                             .font(.headline)
-                        Text(c.instructor)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
+//                        Text(c.instructor)
+//                            .font(.subheadline)
+//                            .foregroundStyle(.secondary)
                     }
                     .padding(.vertical, 6)
                 }
