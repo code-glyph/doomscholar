@@ -5,7 +5,11 @@ struct CanvasLoginView: View {
 
     private let canvasURL = "https://psu.instructure.com/"
 
+    // ✅ Persist across app launches
+    @AppStorage("canvasLoggedIn") private var canvasLoggedIn: Bool = false
+
     @State private var goToCanvas = false
+    @State private var goToDashboard = false
 
     var body: some View {
         NavigationStack {
@@ -19,17 +23,43 @@ struct CanvasLoginView: View {
                     heroCard
                     loginCard
 
+                    Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)
             }
+            // ✅ If already logged in, skip this screen
+            .onAppear {
+                if canvasLoggedIn {
+                    // jump straight to dashboard
+                    goToDashboard = true
+                }
+            }
+
+            // 1) Push Canvas web login
             .navigationDestination(isPresented: $goToCanvas) {
-                // ✅ Opens PSU Canvas full-screen in your in-app webview
                 InAppBrowserView(
-                    startURL: "https://psu.instructure.com/",
+                    startURL: canvasURL,
                     enableQuizTimer: false,
-                    examModeEnabled: .constant(false)
+                    examModeEnabled: .constant(false),
+                    autoReturnToAppOnCanvasDashboard: true,
+                    onAutoReturnFromCanvas: {
+                        DispatchQueue.main.async {
+                            // ✅ mark logged in persistently
+                            canvasLoggedIn = true
+
+                            goToCanvas = false
+                            goToDashboard = true
+                        }
+                    }
                 )
+                .toolbar(.hidden, for: .navigationBar)
+            }
+
+            // 2) After login, push DoomScholar dashboard
+            .navigationDestination(isPresented: $goToDashboard) {
+                DashboardView()
+                    .appTheme(AppTheme())
                     .toolbar(.hidden, for: .navigationBar)
             }
         }
@@ -103,13 +133,18 @@ struct CanvasLoginView: View {
                 }
 
                 Button {
-                    goToCanvas = true
+                    // If already logged in, skip opening Canvas again
+                    if canvasLoggedIn {
+                        goToDashboard = true
+                    } else {
+                        goToCanvas = true
+                    }
                 } label: {
                     HStack(spacing: 10) {
                         Image(systemName: "arrow.right.circle.fill")
                             .font(.system(size: 18, weight: .bold))
 
-                        Text("Continue with Canvas")
+                        Text(canvasLoggedIn ? "Continue to Dashboard" : "Continue with Canvas")
                             .font(.system(size: 17, weight: .bold, design: .rounded))
                     }
                     .foregroundStyle(.white)
@@ -126,26 +161,27 @@ struct CanvasLoginView: View {
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(theme.textSecondary)
 
-                    Text("You’ll sign in inside DoomScholar. Later we’ll fetch courses after login.")
+                    Text(canvasLoggedIn
+                         ? "Canvas is connected on this device."
+                         : "You’ll sign in inside DoomScholar. After login we’ll return to your dashboard.")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(theme.textSecondary)
                 }
-            }
-        }
-    }
 
-    private var footer: some View {
-        VStack(spacing: 8) {
-            Button {
-                // TODO: route to dashboard with mock courses
-            } label: {
-                Text("Continue without Canvas")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(.purple)
+                // ✅ Optional: add a mock logout/reset for testing
+                if canvasLoggedIn {
+                    Button {
+                        canvasLoggedIn = false
+                    } label: {
+                        Text("Disconnect Canvas")
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.red)
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.top, 6)
+                }
             }
-            .buttonStyle(.plain)
         }
-        .padding(.bottom, 6)
     }
 
     // MARK: - UI Helpers

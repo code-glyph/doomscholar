@@ -11,24 +11,45 @@ import Foundation
 import Combine
 
 struct InAppBrowserView: View {
+    @Environment(\.dismiss) private var dismiss
     @StateObject private var model: BrowserModel
 
-    /// ✅ Exam Mode is now owned by the view (or parent) instead of BrowserModel.
+    /// Exam Mode is owned by the view (or parent) instead of BrowserModel.
     @Binding private var examModeEnabled: Bool
 
     private let enableQuizTimer: Bool
 
+    // ✅ Canvas auto-return
+    private let autoReturnToAppOnCanvasDashboard: Bool
+    private let onAutoReturnFromCanvas: (() -> Void)?
+    @State private var didAutoReturn = false
+
     // Convenience init when caller doesn’t care (defaults ON)
-    init(startURL: String, enableQuizTimer: Bool = true) {
-        self._examModeEnabled = .constant(enableQuizTimer) // default ON for scrolling, OFF for canvas
+    init(
+        startURL: String,
+        enableQuizTimer: Bool = true,
+        autoReturnToAppOnCanvasDashboard: Bool = false,
+        onAutoReturnFromCanvas: (() -> Void)? = nil
+    ) {
+        self._examModeEnabled = .constant(enableQuizTimer) // ON for scrolling, OFF for canvas
         self.enableQuizTimer = enableQuizTimer
+        self.autoReturnToAppOnCanvasDashboard = autoReturnToAppOnCanvasDashboard
+        self.onAutoReturnFromCanvas = onAutoReturnFromCanvas
         _model = StateObject(wrappedValue: BrowserModel(startURL: startURL, enableQuizTimer: enableQuizTimer))
     }
 
     // Full init when caller wants to control examMode externally
-    init(startURL: String, enableQuizTimer: Bool = true, examModeEnabled: Binding<Bool>) {
+    init(
+        startURL: String,
+        enableQuizTimer: Bool = true,
+        examModeEnabled: Binding<Bool>,
+        autoReturnToAppOnCanvasDashboard: Bool = false,
+        onAutoReturnFromCanvas: (() -> Void)? = nil
+    ) {
         self._examModeEnabled = examModeEnabled
         self.enableQuizTimer = enableQuizTimer
+        self.autoReturnToAppOnCanvasDashboard = autoReturnToAppOnCanvasDashboard
+        self.onAutoReturnFromCanvas = onAutoReturnFromCanvas
         _model = StateObject(wrappedValue: BrowserModel(startURL: startURL, enableQuizTimer: enableQuizTimer))
     }
 
@@ -78,7 +99,7 @@ struct InAppBrowserView: View {
             )
         }
         .onAppear {
-            // ✅ Only start timer if this screen is allowed to quiz AND exam mode is on
+            // Only start timers if allowed AND exam mode is on
             if enableQuizTimer && examModeEnabled {
                 model.start()
             } else {
@@ -86,7 +107,7 @@ struct InAppBrowserView: View {
             }
         }
         .onChange(of: examModeEnabled) { _, newValue in
-            // ✅ If user toggles exam mode, start/stop timer live
+            // If user toggles exam mode, start/stop timers live
             guard enableQuizTimer else { return } // Canvas login never quizzes
             if newValue {
                 model.start()
@@ -95,11 +116,45 @@ struct InAppBrowserView: View {
                 model.clearBlockOverlayIfNeeded()
             }
         }
+        // ✅ Canvas: auto-return once user hits the Canvas dashboard
+        .onChange(of: model.currentURLString) { _, newURL in
+            guard autoReturnToAppOnCanvasDashboard else { return }
+            guard !didAutoReturn else { return }
+
+            if isCanvasLoggedInLanding(urlString: newURL, pageTitle: model.pageTitle) {
+                didAutoReturn = true
+
+                // 1) dismiss the web view back to login screen
+                dismiss()
+
+                // 2) notify parent to navigate to DoomScholar dashboard
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    onAutoReturnFromCanvas?()
+                }
+            }
+        }
         .onDisappear {
             model.stopTimer()
         }
     }
+
+    private func isCanvasLoggedInLanding(urlString: String, pageTitle: String) -> Bool {
+        guard let url = URL(string: urlString) else { return false }
+        guard let host = url.host?.lowercased(), host.contains("instructure.com") else { return false }
+
+        let path = url.path.lowercased()
+        if path.contains("/dashboard") { return true }
+        if path.contains("/courses") { return true }
+
+        // Title-based fallback
+        if pageTitle.lowercased().contains("dashboard") { return true }
+
+        return false
+    }
 }
+
+// MARK: - ViewModel
+
 final class BrowserModel: ObservableObject {
     @Published var urlText: String
     @Published var request: URLRequest?
@@ -132,7 +187,7 @@ final class BrowserModel: ObservableObject {
     private let fetchEverySeconds: Int = 15
     private let questionsEndpoint = URL(string: "https://doomscholar-production.up.railway.app/questions")!
 
-    // ✅ New: buffer incoming question while user is answering
+    // Buffer incoming question while user is answering
     private var pendingQuestion: QuizQuestion? = nil
 
     init(startURL: String = "https://www.instagram.com", enableQuizTimer: Bool = true) {
@@ -151,18 +206,14 @@ final class BrowserModel: ObservableObject {
 
     deinit { stopAll() }
 
-    // MARK: - Lifecycle
-
     func start() {
         stopAll()
         guard enableQuizTimer else { return }
 
-        // Quiz interrupt timer
         quizTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             self?.tickQuiz()
         }
 
-        // Question polling (fetch once immediately, then repeat)
         fetchLatestQuestion()
         fetchTimer = Timer.scheduledTimer(withTimeInterval: TimeInterval(fetchEverySeconds), repeats: true) { [weak self] _ in
             self?.fetchLatestQuestion()
@@ -179,13 +230,9 @@ final class BrowserModel: ObservableObject {
         isFetching = false
     }
 
-    // MARK: - Quiz timer logic
-
     private func tickQuiz() {
         guard enableQuizTimer else { return }
-
-        // ✅ If user is currently answering, do NOT trigger a new popup
-        if showQuiz { return }
+        if showQuiz { return } // don’t spawn another popup while answering
 
         secondsSpent += 1
         if secondsSpent % triggerEverySeconds == 0 {
@@ -195,11 +242,8 @@ final class BrowserModel: ObservableObject {
 
     func openQuizNow() {
         guard enableQuizTimer else { return }
-
-        // ✅ Don't open if already open (double safety)
         guard !showQuiz else { return }
 
-        // ✅ If we have a pending question fetched during last quiz, apply it now
         if let pending = pendingQuestion {
             currentQuestion = pending
             pendingQuestion = nil
@@ -215,7 +259,6 @@ final class BrowserModel: ObservableObject {
             secondsSpent = 0
             showQuiz = false
 
-            // ✅ When quiz ends, if we received a pending question during the quiz, apply it for next time
             if let pending = pendingQuestion {
                 currentQuestion = pending
                 pendingQuestion = nil
@@ -224,8 +267,6 @@ final class BrowserModel: ObservableObject {
             // keep blocked; user can review + retry
         }
     }
-
-    // MARK: - Fetch question from API
 
     private func fetchLatestQuestion() {
         guard enableQuizTimer else { return }
@@ -246,11 +287,9 @@ final class BrowserModel: ObservableObject {
                 let newQuestion = QuizQuestion.fromAPI(decoded)
 
                 DispatchQueue.main.async {
-                    // ✅ If user is answering, buffer it
                     if self.showQuiz {
                         self.pendingQuestion = newQuestion
                     } else {
-                        // otherwise, update immediately
                         self.currentQuestion = newQuestion
                     }
                 }
@@ -259,8 +298,6 @@ final class BrowserModel: ObservableObject {
             }
         }.resume()
     }
-
-    // MARK: - Review & navigation
 
     func openReview() {
         urlText = "https://example.com/review"
@@ -280,10 +317,7 @@ final class BrowserModel: ObservableObject {
         removeHardBlockOverlay()
         showQuiz = false
         secondsSpent = 0
-        // don’t drop pendingQuestion; keep it for next time
     }
-
-    // MARK: - JS Overlays
 
     private func injectHardBlockOverlay() {
         jsToEvaluate = """

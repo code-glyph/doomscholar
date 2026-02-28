@@ -68,7 +68,7 @@ struct SettingsView: View {
                                 }
 
                                 OptionPills(
-                                    options: frequencyOptions.map { "\($0)m" },
+                                    options: frequencyOptions.map { "\($0)s" },
                                     selectedIndex: frequencyOptions.firstIndex(of: frequencyMinutes) ?? 1,
                                     selectedGradient: theme.brandGradient
                                 ) { idx in
