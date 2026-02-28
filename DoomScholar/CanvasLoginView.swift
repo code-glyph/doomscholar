@@ -19,8 +19,6 @@ struct CanvasLoginView: View {
                     heroCard
                     loginCard
 
-                    Spacer()
-                    footer
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 18)

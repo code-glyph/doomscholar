@@ -126,7 +126,7 @@ final class BrowserModel: ObservableObject {
 
     private var timer: Timer?
     private var secondsSpent: Int = 0
-    private let triggerEverySeconds: Int = 25
+    private let triggerEverySeconds: Int = 10
 
     init(startURL: String = "https://www.instagram.com", enableQuizTimer: Bool = true) {
         self.urlText = startURL
