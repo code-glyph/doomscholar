@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
 from api.routes import courses as courses_routes
 from api.routes import files as files_routes
+from api.routes import questions as questions_routes
 
 app = FastAPI(
     title="DoomScholar API",
@@ -29,6 +30,7 @@ app.include_router(
     prefix="/courses/{course_id}/files",
     tags=["Files"],
 )
+app.include_router(questions_routes.router, prefix="/questions", tags=["Questions"])
 
 
 @app.get("/", tags=["Meta"])
@@ -42,6 +44,7 @@ async def root():
             "courses": "GET /api/v1/courses",
             "course_files": "GET /api/v1/courses/{course_id}/files",
             "course_files_via_modules": "GET /api/v1/courses/{course_id}/files/via_modules",
+            "get_question": "GET /api/v1/questions or GET /questions",
         },
     }
 
