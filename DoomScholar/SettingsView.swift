@@ -85,9 +85,9 @@ struct SettingsView: View {
 
                     impactCard
                         .padding(.horizontal, 16)
-
-                    quickPresets
-                        .padding(.horizontal, 16)
+//
+//                    quickPresets
+//                        .padding(.horizontal, 16)
 
                     Button {
                         // mock save (AppStorage already persists)

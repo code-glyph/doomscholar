@@ -10,9 +10,9 @@ import Foundation
 
 enum DashboardMockData {
     static let courses: [DashboardCourse] = [
-        .init(name: "Algorithms", code: "CS 2510", instructor: "Prof. Lin"),
-        .init(name: "Linear Algebra", code: "MATH 21", instructor: "Prof. Patel"),
-        .init(name: "Physics I", code: "PHYS 211", instructor: "Prof. Nguyen")
+        .init(name: "Programming and Computation II: Data Structures", code: "CMPSC 132", instructor: "Prof. Krishna Kambhampaty"),
+        .init(name: "Introduction to Systems Programming", code: "CMPSC 311", instructor: "Prof. Sencun Zhu"),
+        .init(name: "Programming for Engineers with MATLAB", code: "CMPSC 200", instructor: "Prof.  Brad Sottile")
     ]
 
     static let appLinks: [DashboardAppLink] = [
