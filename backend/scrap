@@ -1,0 +1,8 @@
+
+
+# Copy to .env and set your Canvas access token.
+# Get a token: https://psu.instructure.com/profile/settings → + New Access Token
+CANVAS_ACCESS_TOKEN="7~299uV4aYTnzVB6vTQz9K9GveMaUXxUacm7NnrCakvGevt6YcMvuTLRhMB6MvKYY3"
+
+# Optional; default is PSU Canvas
+CANVAS_BASE_URL=https://canvas.instructure.com

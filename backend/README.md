@@ -64,13 +64,16 @@ Docs: http://127.0.0.1:8000/docs
 
 ## Endpoints (Postman)
 
-Base URL: `http://127.0.0.1:8000`
+Base URL: `http://127.0.0.1:8000`. **API routes are under `/api/v1`.**
 
-1. **`GET /health`** – Check that the app is up and Canvas is configured (no token in response). If `canvas_token_configured` is `false`, fix your `.env` or env vars.
-2. **`GET /courses`** – List courses for the configured Canvas user. Optional query params (passed to Canvas):
+1. **`GET /health`** – Check that the app is up and Canvas is configured.
+2. **`GET /api/v1/courses`** – List courses for the configured Canvas user. Optional query params (passed to Canvas):
    - `enrollment_state`: `active` | `invited_or_pending` | `completed`
    - `include`: list of includes (e.g. `syllabus_body`, `term`)
    - `per_page`: number of courses per page (Canvas default is 10)
+3. **`GET /api/v1/courses/{course_id}/files`** – List all course files (often 403 for student tokens).
+4. **`GET /api/v1/courses/{course_id}/files/via_modules`** – List files from modules (works with student tokens).
 
-- **401 on `/courses`** – Token invalid or expired. Create a new token at PSU Canvas → Profile → Settings → + New Access Token and update `.env`.
+- **404** – Use `/api/v1/...` paths, not `/courses` alone.
+- **401 on courses** – Token invalid or expired. Create a new token at PSU Canvas → Profile → Settings → + New Access Token and update `.env`.
 - OpenAPI: `GET /openapi.json` (for Postman import).

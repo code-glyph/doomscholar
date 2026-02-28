@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routes import router as api_router
+from api.routes import courses as courses_routes
+from api.routes import files as files_routes
 
 app = FastAPI(
     title="DoomScholar API",
@@ -20,6 +22,28 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+# Also serve at /courses and /courses/... so clients without /api/v1 prefix work
+app.include_router(courses_routes.router, prefix="/courses", tags=["Courses"])
+app.include_router(
+    files_routes.router,
+    prefix="/courses/{course_id}/files",
+    tags=["Files"],
+)
+
+
+@app.get("/", tags=["Meta"])
+async def root():
+    """List main API entry points."""
+    return {
+        "message": "DoomScholar API",
+        "docs": "/docs",
+        "health": "/health",
+        "api_v1": {
+            "courses": "GET /api/v1/courses",
+            "course_files": "GET /api/v1/courses/{course_id}/files",
+            "course_files_via_modules": "GET /api/v1/courses/{course_id}/files/via_modules",
+        },
+    }
 
 
 @app.get("/health", tags=["Meta"])

@@ -32,7 +32,7 @@ async def ingest_course(course_id: int) -> None:
         await qdrant_client.ensure_collection()
 
         # 1. Fetch full file list from Canvas
-        raw_files = await canvas_service.list_course_files(course_id)
+        raw_files = await canvas_service.list_course_files_via_modules(course_id)
 
         # 2. Filter to supported types only (PPTX, DOCX, TXT)
         supported_files = [f for f in raw_files if is_supported(f)]
